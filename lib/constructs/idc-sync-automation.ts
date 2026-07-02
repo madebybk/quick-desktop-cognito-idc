@@ -1,4 +1,4 @@
-import { CustomResource, Duration, Stack } from 'aws-cdk-lib';
+import { CustomResource, Duration } from 'aws-cdk-lib';
 import { Function as LambdaFunction, Runtime, Code } from 'aws-cdk-lib/aws-lambda';
 import { Provider } from 'aws-cdk-lib/custom-resources';
 import { Rule } from 'aws-cdk-lib/aws-events';
@@ -43,8 +43,6 @@ export class IdcSyncAutomation extends Construct {
     super(scope, id);
 
     const { idcGroupName, userPool, onRemove } = props;
-    const stack = Stack.of(this);
-    const { partition, account } = stack;
 
     // --- Deploy-time resolver custom resource --------------------------------
     const resolverFn = new LambdaFunction(this, 'IdcResolverFunction', {
@@ -107,16 +105,16 @@ export class IdcSyncAutomation extends Construct {
     });
 
     // Least privilege: read IDC user details + manage users in this pool only.
-    const { region } = stack;
     this.syncFunction.addToRolePolicy(
       new PolicyStatement({
         effect: Effect.ALLOW,
         actions: ['identitystore:DescribeUser'],
-        // The exact resource-ARN format for identitystore user resources is
-        // poorly documented and has varied, so we scope by account+region for
-        // the identitystore service. This remains least-privilege by action
-        // (only DescribeUser is granted).
-        resources: [`arn:${partition}:identitystore:${region}:${account}:*`],
+        // Scoped to '*': Identity Store resource ARNs are not regionalized in a
+        // standard way — real ARNs carry an empty region (and users an empty
+        // account too), e.g. `arn:aws:identitystore:::user/<id>`, so a
+        // region/account-qualified ARN never matches and the call is denied.
+        // The grant stays least-privilege via the single action (DescribeUser).
+        resources: ['*'],
       }),
     );
     this.syncFunction.addToRolePolicy(

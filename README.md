@@ -192,7 +192,7 @@ for the complete instructions.
 | Principal | Permissions |
 |-----------|-------------|
 | Custom-resource Lambda | `sso:ListInstances`, `identitystore:ListGroups`, `identitystore:CreateGroup` (creates the watched group if absent) |
-| Sync Lambda | `identitystore:DescribeUser` (scoped by action to the identitystore service in this account/region), `cognito-idp:AdminCreateUser`, `cognito-idp:AdminDisableUser`, `cognito-idp:AdminDeleteUser`, `cognito-idp:ListUsers` (scoped to the User Pool ARN) |
+| Sync Lambda | `identitystore:DescribeUser` (resource `*` — Identity Store ARNs are not regionalized in a standard way, so the grant is scoped by the single action), `cognito-idp:AdminCreateUser`, `cognito-idp:AdminDisableUser`, `cognito-idp:AdminDeleteUser`, `cognito-idp:ListUsers` (scoped to the User Pool ARN) |
 
 ## Security considerations
 
