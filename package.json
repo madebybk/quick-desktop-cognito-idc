@@ -1,0 +1,26 @@
+{
+  "name": "quick-desktop-cognito-idc",
+  "version": "1.0.0",
+  "description": "CDK stack that deploys Amazon Cognito as an OIDC provider for Amazon Quick on desktop, with automated user sync from IAM Identity Center",
+  "bin": {
+    "quick-desktop-cognito-idc": "lib/app.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "cdk": "cdk",
+    "synth": "cdk synth",
+    "deploy": "cdk deploy"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "^2.260.0",
+    "constructs": "^10.6.0",
+    "source-map-support": "^0.5.21"
+  },
+  "devDependencies": {
+    "aws-cdk": "^2.1128.0",
+    "@types/node": "^22.0.0",
+    "ts-node": "^10.9.0",
+    "typescript": "~5.6.0"
+  }
+}
