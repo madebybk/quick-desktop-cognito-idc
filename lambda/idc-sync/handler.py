@@ -159,17 +159,64 @@ def _find_cognito_username_by_email(email: str) -> str | None:
     return users[0]["Username"] if users else None
 
 
-def _disable_or_delete_cognito_user(username: str, label: str) -> None:
-    """Disables or deletes a Cognito user per the configured ON_REMOVE action."""
+def _find_cognito_username_by_idc_id(idc_user_id: str) -> str | None:
+    """Paginate ListUsers and find a user whose custom:idc_user_id matches.
+
+    Cognito cannot server-side filter on custom attributes, so this scans the
+    whole pool client-side. Used as a fallback for legacy users whose Cognito
+    Username is their email (not the UUID) — their originating IDC user ID still
+    lives in the custom attribute stamped at creation.
+    """
+    paginator = _cognito.get_paginator("list_users")
     try:
-        if ON_REMOVE is RemoveAction.DELETE:
-            _cognito.admin_delete_user(UserPoolId=USER_POOL_ID, Username=username)
-            print(f"DELETED: {username} ({label})")
-        else:
-            _cognito.admin_disable_user(UserPoolId=USER_POOL_ID, Username=username)
-            print(f"DISABLED: {username} ({label})")
+        for page in paginator.paginate(UserPoolId=USER_POOL_ID):
+            for user in page.get("Users", []):
+                for attr in user.get("Attributes", []):
+                    if attr["Name"] == IDC_USER_ID_ATTR and attr["Value"] == idc_user_id:
+                        return user["Username"]
+    except ClientError as e:
+        raise SyncError(f"ListUsers scan failed for idc_user_id {idc_user_id}: {e}") from e
+    return None
+
+
+def _apply_remove_action(username: str, label: str) -> None:
+    """Disables or deletes a specific Cognito username per ON_REMOVE.
+
+    Raises UserNotFoundException (uncaught) when the username does not exist, so
+    the caller can decide whether to attempt a fallback lookup.
+    """
+    if ON_REMOVE is RemoveAction.DELETE:
+        _cognito.admin_delete_user(UserPoolId=USER_POOL_ID, Username=username)
+        print(f"DELETED: {username} ({label})")
+    else:
+        _cognito.admin_disable_user(UserPoolId=USER_POOL_ID, Username=username)
+        print(f"DISABLED: {username} ({label})")
+
+
+def _disable_or_delete_cognito_user(username: str, label: str) -> None:
+    """Disables or deletes a Cognito user per the configured ON_REMOVE action.
+
+    `username` is normally the IDC user ID (== Cognito Username for post-C1
+    users). If no such username exists, fall back to locating a legacy user
+    (Cognito Username == email) by matching the custom:idc_user_id attribute.
+    """
+    try:
+        _apply_remove_action(username, label)
     except _cognito.exceptions.UserNotFoundException:
-        print(f"NOT FOUND: {username} already gone — no action")
+        # UUID isn't a Cognito Username — could be a legacy email-username user.
+        # The IDC user is already gone, so DescribeUser can't help; scan the pool
+        # for the matching custom:idc_user_id instead.
+        legacy_username = _find_cognito_username_by_idc_id(username)
+        if not legacy_username:
+            print(f"NOT FOUND: {username} ({label}) — no Cognito user by id or attr")
+            return
+        try:
+            _apply_remove_action(legacy_username, f"{label}, legacy username={legacy_username}")
+        except _cognito.exceptions.UserNotFoundException:
+            # Raced with another deletion between lookup and action — truly gone.
+            print(f"NOT FOUND: {legacy_username} vanished during remove — no action")
+        except ClientError as e:
+            raise SyncError(f"Remove ({ON_REMOVE}) failed for {legacy_username}: {e}") from e
     except ClientError as e:
         raise SyncError(f"Remove ({ON_REMOVE}) failed for {username}: {e}") from e
 
