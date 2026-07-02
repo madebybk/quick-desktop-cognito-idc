@@ -122,6 +122,7 @@ export class IdcSyncAutomation extends Construct {
         effect: Effect.ALLOW,
         actions: [
           'cognito-idp:AdminCreateUser',
+          'cognito-idp:AdminEnableUser',
           'cognito-idp:AdminDisableUser',
           'cognito-idp:AdminDeleteUser',
           'cognito-idp:ListUsers',

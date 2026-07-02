@@ -183,7 +183,11 @@ def _create_cognito_user(user: IdcUser) -> None:
     standard attribute; `_find_cognito_username_by_email` still resolves the
     real Username (the UUID) by filtering on that email attribute.
 
-    Idempotent: if the user already exists, the event is treated as a no-op.
+    Idempotent: if the user already exists, ensure they are enabled. A user
+    who was previously removed (RemoveMemberFromGroup / DeleteUser) with
+    ON_REMOVE=disable stays in the pool but disabled, so re-adding them must
+    re-enable them or they still cannot log in. AdminEnableUser is a no-op when
+    the user is already enabled.
     """
     try:
         _cognito.admin_create_user(
@@ -198,7 +202,15 @@ def _create_cognito_user(user: IdcUser) -> None:
         )
         print(f"CREATED: {user.email} (idc user {user.username}/{user.user_id})")
     except _cognito.exceptions.UsernameExistsException:
-        print(f"EXISTS: {user.email} already in pool — no action")
+        # Already in the pool — re-enable in case a prior removal disabled them.
+        try:
+            _cognito.admin_enable_user(UserPoolId=USER_POOL_ID, Username=user.user_id)
+            print(f"ENABLED: {user.email} already in pool — ensured enabled")
+        except _cognito.exceptions.UserNotFoundException:
+            # Raced with a deletion between create and enable — nothing to do.
+            print(f"NOT FOUND: {user.email} vanished before enable — no action")
+        except ClientError as e:
+            raise SyncError(f"AdminEnableUser failed for {user.email}: {e}") from e
     except ClientError as e:
         raise SyncError(f"AdminCreateUser failed for {user.email}: {e}") from e
 
