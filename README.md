@@ -49,8 +49,13 @@ The EventBridge event payload for group membership carries **IDs, not names**.
 You configure the group by *name* (`idcGroupName`), so at deploy time a custom
 resource (`lambda/idc-sync/custom_resource.py`) calls `sso:ListInstances` and
 `identitystore:ListGroups` to resolve the IDC instance / Identity Store ID and
-the group's ID. The group ID becomes the EventBridge filter; the Identity Store
-ID becomes a sync-Lambda environment variable.
+the group's ID. If no group with that name exists, the resolver creates it
+(`identitystore:CreateGroup`) and returns the new ID. The group ID becomes the
+EventBridge filter; the Identity Store ID becomes a sync-Lambda environment
+variable.
+
+On stack delete the group is intentionally left in place (never deleted), since
+users may be assigned to it and deleting it would orphan those assignments.
 
 ## CloudTrail requirement
 
@@ -74,8 +79,9 @@ cdk deploy -c idcGroupName=QuickDesktopUsers -c createTrail=false
 ## Prerequisites
 
 - An AWS account with an active Amazon Quick subscription.
-- **IAM Identity Center enabled in the deploy region**, with the group you want
-  to watch already created (e.g. `QuickDesktopUsers`).
+- **IAM Identity Center enabled in the deploy region.** The group you want to
+  watch (e.g. `QuickDesktopUsers`) may already exist; if it does not, the deploy
+  creates it for you.
 - Node.js 18+, the AWS CDK CLI, and configured AWS credentials.
 - Python 3.12 (Lambda runtime — used by AWS, not required locally).
 
@@ -185,7 +191,7 @@ for the complete instructions.
 
 | Principal | Permissions |
 |-----------|-------------|
-| Custom-resource Lambda | `sso:ListInstances`, `identitystore:ListGroups` |
+| Custom-resource Lambda | `sso:ListInstances`, `identitystore:ListGroups`, `identitystore:CreateGroup` (creates the watched group if absent) |
 | Sync Lambda | `identitystore:DescribeUser` (scoped by action to the identitystore service in this account/region), `cognito-idp:AdminCreateUser`, `cognito-idp:AdminDisableUser`, `cognito-idp:AdminDeleteUser`, `cognito-idp:ListUsers` (scoped to the User Pool ARN) |
 
 ## Security considerations

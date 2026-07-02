@@ -26,7 +26,8 @@ export interface IdcSyncAutomationProps {
  * Automated user sync from IAM Identity Center to Cognito.
  *
  *  - A deploy-time custom resource resolves the IDC instance + Identity Store ID
- *    and the watched group's ID from its name.
+ *    and the watched group's ID from its name, creating the group if it does
+ *    not already exist.
  *  - An EventBridge rule captures `AddMemberToGroup` / `RemoveMemberFromGroup`
  *    CloudTrail events, filtered to that group ID.
  *  - A second EventBridge rule captures `DeleteUser` events (user-level, so no
@@ -56,12 +57,18 @@ export class IdcSyncAutomation extends Construct {
       timeout: Duration.seconds(30),
       description: 'Resolves IDC instance ARN and group ID at deploy time',
     });
-    // Least privilege: only the two read APIs needed to resolve instance + group.
+    // Least privilege: the read APIs needed to resolve the instance + group,
+    // plus CreateGroup so the resolver can create the watched group when it does
+    // not yet exist. These APIs do not support resource-level scoping.
     resolverFn.addToRolePolicy(
       new PolicyStatement({
         effect: Effect.ALLOW,
-        actions: ['sso:ListInstances', 'identitystore:ListGroups'],
-        resources: ['*'], // these list APIs do not support resource-level scoping
+        actions: [
+          'sso:ListInstances',
+          'identitystore:ListGroups',
+          'identitystore:CreateGroup',
+        ],
+        resources: ['*'],
       }),
     );
 
