@@ -61,7 +61,7 @@ export class CognitoOidcProxy extends Construct {
       autoVerify: { email: true },
       userInvitation: {
         emailSubject: 'Your Amazon Quick Desktop invitation',
-        emailBody: `You have been invited to Amazon Quick Desktop.\n\nLog in with your email address.\nTemporary password: {####}\n\nYou will be asked to set a new password on first login.`,
+        emailBody: `You have been invited to Amazon Quick Desktop.\n\nYour username is {username} — but please log in with your email address instead.\nTemporary password: {####}\n\nYou will be asked to set a new password on first login.`,
       },
       standardAttributes: { email: { required: true, mutable: true } },
       // Correlates each Cognito user back to its IAM Identity Center user ID, so
