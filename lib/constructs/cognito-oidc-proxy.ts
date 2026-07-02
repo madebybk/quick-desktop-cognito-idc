@@ -59,6 +59,10 @@ export class CognitoOidcProxy extends Construct {
       selfSignUpEnabled: false,
       signInAliases: { username: true, email: true },
       autoVerify: { email: true },
+      userInvitation: {
+        emailSubject: 'Amazon Quick Desktop 초대',
+        emailBody: `Amazon Quick Desktop에 초대되었습니다.\n\n이메일 주소로 로그인하세요.\n임시 비밀번호: {####}\n\n첫 로그인 시 새 비밀번호를 설정하게 됩니다.`,
+      },
       standardAttributes: { email: { required: true, mutable: true } },
       // Correlates each Cognito user back to its IAM Identity Center user ID, so
       // the sync Lambda can find the right user on a `DeleteUser` event (which
