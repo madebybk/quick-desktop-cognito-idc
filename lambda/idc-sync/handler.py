@@ -203,12 +203,24 @@ def _create_cognito_user(user: IdcUser) -> None:
         print(f"CREATED: {user.email} (idc user {user.username}/{user.user_id})")
     except _cognito.exceptions.UsernameExistsException:
         # Already in the pool — re-enable in case a prior removal disabled them.
+        # Try UUID username first (post-C1 users), then email (pre-C1 legacy
+        # users whose Cognito Username is the email address). With email as a
+        # sign-in alias, AdminCreateUser can collide on the email alias even
+        # when no UUID-named user exists, so the UUID enable then 404s.
+        cognito_username = user.user_id
         try:
-            _cognito.admin_enable_user(UserPoolId=USER_POOL_ID, Username=user.user_id)
-            print(f"ENABLED: {user.email} already in pool — ensured enabled")
+            _cognito.admin_enable_user(UserPoolId=USER_POOL_ID, Username=cognito_username)
+            print(f"ENABLED: {user.email} (username={cognito_username})")
         except _cognito.exceptions.UserNotFoundException:
-            # Raced with a deletion between create and enable — nothing to do.
-            print(f"NOT FOUND: {user.email} vanished before enable — no action")
+            # Legacy user — username is the email
+            cognito_username = user.email
+            try:
+                _cognito.admin_enable_user(UserPoolId=USER_POOL_ID, Username=cognito_username)
+                print(f"ENABLED (legacy): {user.email} (username={cognito_username})")
+            except _cognito.exceptions.UserNotFoundException:
+                print(f"NOT FOUND: {user.email} not found by UUID or email — no action")
+            except ClientError as e:
+                raise SyncError(f"AdminEnableUser failed for {user.email}: {e}") from e
         except ClientError as e:
             raise SyncError(f"AdminEnableUser failed for {user.email}: {e}") from e
     except ClientError as e:
