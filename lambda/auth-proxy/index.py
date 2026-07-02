@@ -127,10 +127,14 @@ class TokenHandler:
                 body=e.read().decode(),
             )
         except urllib.error.URLError as e:
+            # Log the underlying reason server-side but return a generic error;
+            # the reason can carry internal network detail that should not leak
+            # to the client.
+            print(f"ERROR: upstream unreachable: {e.reason}")
             return ProxyResponse(
                 statusCode=StatusCode.BAD_GATEWAY,
                 headers={"Content-Type": ContentType.JSON.value},
-                body=f'{{"error": "upstream_unreachable", "reason": "{e.reason}"}}',
+                body='{"error": "upstream_unreachable"}',
             )
 
     def _clean_body(self, body: str) -> str:

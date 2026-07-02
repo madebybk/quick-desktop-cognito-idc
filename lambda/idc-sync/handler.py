@@ -6,14 +6,15 @@ Triggered by CloudTrail-delivered IAM Identity Center directory events
   - ``AddMemberToGroup``      -> resolve the user's email from the Identity Store
                                  and create a Cognito user (Cognito emails an
                                  invitation with a one-time temporary password).
-                                 The IDC user ID is stamped onto the Cognito user
-                                 as ``custom:idc_user_id`` for later correlation.
+                                 The IDC user ID is used as the Cognito Username
+                                 and also stamped as ``custom:idc_user_id`` (kept
+                                 for auditing).
   - ``RemoveMemberFromGroup`` -> disable or delete the matching Cognito user.
   - ``DeleteUser``            -> the user no longer exists in IDC, so its email
                                  is unknowable from the event and ``DescribeUser``
-                                 will fail. Instead the matching Cognito user is
-                                 located by its ``custom:idc_user_id`` attribute
-                                 and disabled or deleted.
+                                 will fail. No lookup is needed: the Cognito
+                                 Username is the IDC user ID, so the user is
+                                 disabled or deleted directly by that ID.
 
 The group-membership rule already filters to the target group, so this handler
 does not re-check the group. The ``DeleteUser`` rule is not group-filtered (the
@@ -42,8 +43,9 @@ class EventName(StrEnum):
     DELETE_USER = "DeleteUser"
 
 
-# Custom Cognito attribute that stores the originating IDC user ID, used to
-# correlate a Cognito user back to IDC on a `DeleteUser` event.
+# Custom Cognito attribute that stores the originating IDC user ID. The Cognito
+# Username is already set to this ID, so the attribute is kept for auditing /
+# explicit correlation rather than as the lookup key.
 IDC_USER_ID_ATTR = "custom:idc_user_id"
 
 
@@ -157,27 +159,6 @@ def _find_cognito_username_by_email(email: str) -> str | None:
     return users[0]["Username"] if users else None
 
 
-def _find_cognito_username_by_idc_id(idc_user_id: str) -> str | None:
-    """Returns the Cognito username stamped with the given IDC user ID, or None.
-
-    Cognito `ListUsers` cannot server-side filter on custom attributes, so this
-    paginates the pool and matches `custom:idc_user_id` client-side.
-    """
-    paginator = _cognito.get_paginator("list_users")
-    try:
-        for page in paginator.paginate(UserPoolId=USER_POOL_ID):
-            for user in page.get("Users", []):
-                for attr in user.get("Attributes", []):
-                    if (
-                        attr.get("Name") == IDC_USER_ID_ATTR
-                        and attr.get("Value") == idc_user_id
-                    ):
-                        return user["Username"]
-    except ClientError as e:
-        raise SyncError(f"ListUsers failed for idc_user_id {idc_user_id}: {e}") from e
-    return None
-
-
 def _disable_or_delete_cognito_user(username: str, label: str) -> None:
     """Disables or deletes a Cognito user per the configured ON_REMOVE action."""
     try:
@@ -231,15 +212,6 @@ def _remove_cognito_user_by_email(email: str) -> None:
     _disable_or_delete_cognito_user(username, email)
 
 
-def _remove_cognito_user_by_idc_id(idc_user_id: str) -> None:
-    """Disables or deletes the Cognito user stamped with the given IDC user ID."""
-    username = _find_cognito_username_by_idc_id(idc_user_id)
-    if not username:
-        print(f"NOT FOUND: no Cognito user for idc_user_id {idc_user_id} — no action")
-        return
-    _disable_or_delete_cognito_user(username, f"idc_user_id={idc_user_id}")
-
-
 def handler(event: dict, _context: object) -> dict:
     detail = event.get("detail") or {}
     event_name = detail.get("eventName", "")
@@ -269,10 +241,12 @@ def handler(event: dict, _context: object) -> dict:
                     _remove_cognito_user_by_email(user.email)
             case EventName.DELETE_USER:
                 # The IDC user is being deleted, so DescribeUser is unreliable
-                # (it will fail once the user is gone). Correlate via the
-                # custom:idc_user_id attribute stamped at creation instead.
+                # (it will fail once the user is gone). No lookup is needed: the
+                # Cognito Username IS the IDC user ID (set in _create_cognito_user),
+                # so address the user directly. _disable_or_delete_cognito_user
+                # treats a missing user as a safe no-op (UserNotFoundException).
                 user_id = _extract_user_id(detail)
-                _remove_cognito_user_by_idc_id(user_id)
+                _disable_or_delete_cognito_user(user_id, f"idc_user_id={user_id}")
             case _:
                 print(f"IGNORED: unsupported event {event_name!r}")
                 return {"status": "ignored", "eventName": event_name}
