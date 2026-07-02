@@ -18,7 +18,7 @@ export interface QuickDesktopAuthStackProps extends StackProps {
   readonly mfaRequired?: boolean;
   /** Retain the User Pool on stack delete. */
   readonly retain?: boolean;
-  /** Action on IDC member removal: 'disable' (default) or 'delete'. */
+  /** Action on IDC member removal: 'delete' (default) or 'disable'. */
   readonly onRemove?: string;
   /**
    * Create a CloudTrail trail capturing management events (default true).

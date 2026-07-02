@@ -24,7 +24,7 @@ safe no-op.
 Environment variables (set by the CDK stack):
   USER_POOL_ID       Cognito User Pool ID
   IDENTITY_STORE_ID  IAM Identity Center Identity Store ID
-  ON_REMOVE          "disable" (default) or "delete" — action on member removal
+  ON_REMOVE          "delete" (default) or "disable" — action on member removal
   WATCHED_GROUP_ID   IDC group ID the EventBridge rule filters on; used as a
                      handler-side safety-net re-check (see W1 note below).
 """
@@ -56,7 +56,7 @@ class RemoveAction(StrEnum):
 
 USER_POOL_ID = os.environ["USER_POOL_ID"]
 IDENTITY_STORE_ID = os.environ["IDENTITY_STORE_ID"]
-ON_REMOVE = RemoveAction(os.environ.get("ON_REMOVE", RemoveAction.DISABLE))
+ON_REMOVE = RemoveAction(os.environ.get("ON_REMOVE", RemoveAction.DELETE))
 # The membership EventBridge rule already filters to this group, but we re-check
 # it in the handler as a safety net (see `_extract_group_id`). Empty string means
 # "no group configured" — the safety-net check is then skipped.

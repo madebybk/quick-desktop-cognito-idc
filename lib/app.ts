@@ -19,7 +19,7 @@ const mfaRequired = app.node.tryGetContext('mfaRequired') === true ||
   app.node.tryGetContext('mfaRequired') === 'true';
 const retain = app.node.tryGetContext('retain') === true ||
   app.node.tryGetContext('retain') === 'true';
-const onRemove = app.node.tryGetContext('onRemove') as string | undefined;
+const onRemove = (app.node.tryGetContext('onRemove') as string | undefined) ?? 'delete';
 // Defaults to true; only an explicit "false" (or boolean false) disables it.
 const createTrailCtx = app.node.tryGetContext('createTrail');
 const createTrail = !(createTrailCtx === false || createTrailCtx === 'false');

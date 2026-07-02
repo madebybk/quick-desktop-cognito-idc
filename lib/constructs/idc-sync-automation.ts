@@ -18,7 +18,7 @@ export interface IdcSyncAutomationProps {
   readonly idcGroupName: string;
   /** Cognito User Pool that users are synced into. */
   readonly userPool: UserPool;
-  /** Action on member removal: 'disable' (default) or 'delete'. */
+  /** Action on member removal: 'delete' (default) or 'disable'. */
   readonly onRemove?: string;
 }
 
@@ -97,7 +97,7 @@ export class IdcSyncAutomation extends Construct {
       environment: {
         USER_POOL_ID: userPool.userPoolId,
         IDENTITY_STORE_ID: this.identityStoreId,
-        ON_REMOVE: onRemove ?? 'disable',
+        ON_REMOVE: onRemove ?? 'delete',
         // Safety-net group re-check in the handler (see handler.py W1 note).
         WATCHED_GROUP_ID: this.groupId,
       },
