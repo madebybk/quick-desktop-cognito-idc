@@ -7,6 +7,8 @@ for enterprise sign-in requires an
 Cognito as that OIDC provider** — no external IdP required — and **keeps the
 Cognito user pool in sync with an IAM Identity Center group automatically**.
 
+> **Full step-by-step setup guide:** [Amazon Quick Desktop Enterprise 로그인 설정 가이드](https://madebybk.notion.site/amazon-quick-desktop-enterprise-idp-cognito-idc)
+
 IAM Identity Center stays the single source of truth for *who* is a Quick
 desktop user. Add a person to the watched group and they get a Cognito
 invitation email; remove them and their Cognito user is disabled (or deleted).
@@ -99,7 +101,7 @@ cdk deploy -c idcGroupName=QuickDesktopUsers -c createTrail=false
 | `allowedCidrs` | no | JSON array of CIDRs allowed to reach the API Gateway. Omit to leave it open. |
 | `mfaRequired` | no | `true` to enforce TOTP (authenticator-app) MFA for all users. |
 | `retain` | no | `true` to retain the Cognito User Pool (and the CloudTrail log bucket) when the stack is destroyed. |
-| `onRemove` | no | `disable` (default) or `delete` — what to do to the Cognito user when someone leaves the group. |
+| `onRemove` | no | `delete` (default) or `disable` — what to do to the Cognito user when someone leaves the group. |
 | `createTrail` | no | `true` (default) to create a CloudTrail trail capturing management events. Set `false` if the account already has a management-event trail in this region (see [CloudTrail requirement](#cloudtrail-requirement)). |
 
 ## Deploy
@@ -192,7 +194,7 @@ for the complete instructions.
 | Principal | Permissions |
 |-----------|-------------|
 | Custom-resource Lambda | `sso:ListInstances`, `identitystore:ListGroups`, `identitystore:CreateGroup` (creates the watched group if absent) |
-| Sync Lambda | `identitystore:DescribeUser` (resource `*` — Identity Store ARNs are not regionalized in a standard way, so the grant is scoped by the single action), `cognito-idp:AdminCreateUser`, `cognito-idp:AdminDisableUser`, `cognito-idp:AdminDeleteUser`, `cognito-idp:ListUsers` (scoped to the User Pool ARN) |
+| Sync Lambda | `identitystore:DescribeUser` (resource `*` — Identity Store ARNs are not regionalized in a standard way, so the grant is scoped by the single action), `cognito-idp:AdminCreateUser`, `cognito-idp:AdminDisableUser`, `cognito-idp:AdminEnableUser`, `cognito-idp:AdminDeleteUser`, `cognito-idp:ListUsers` (scoped to the User Pool ARN) |
 
 ## Security considerations
 
