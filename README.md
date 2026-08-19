@@ -78,12 +78,40 @@ skip the extra trail to avoid duplicate logging and cost:
 cdk deploy -c idcGroupName=QuickDesktopUsers -c createTrail=false
 ```
 
+## Cognito-only mode (no IAM Identity Center)
+
+If you do not use IAM Identity Center — or just want the smallest possible OIDC
+provider for Quick desktop — deploy with `useIdc=false`:
+
+```bash
+cdk deploy -c useIdc=false
+```
+
+No `idcGroupName` is needed. This deploys **only** the `CognitoOidcProxy`
+construct (User Pool + hosted UI + app client + API Gateway + proxy Lambda) and
+still emits all six OIDC outputs, so
+[configuring Amazon Quick](#configure-amazon-quick) is identical. Skipped in this
+mode: the `IdcSyncAutomation` construct (EventBridge rules, sync Lambda, custom
+resource, DLQ) and the CloudTrail trail + S3 bucket — none of the
+[CloudTrail requirement](#cloudtrail-requirement) applies.
+
+You then **manage users manually** in the Cognito console (Amazon Cognito → your
+user pool → Users → *Create user*): create each Quick desktop user with the
+email address that matches their Amazon Quick user, and Cognito emails them an
+invitation with a temporary password. Removing access means disabling or deleting
+the user in the same console.
+
+Switching later is a normal stack update: redeploy with
+`-c idcGroupName=QuickDesktopUsers` to add the sync automation to the existing
+User Pool (its users are untouched), or with `-c useIdc=false` to remove it.
+
 ## Prerequisites
 
 - An AWS account with an active Amazon Quick subscription.
 - **IAM Identity Center enabled in the deploy region.** The group you want to
   watch (e.g. `QuickDesktopUsers`) may already exist; if it does not, the deploy
-  creates it for you.
+  creates it for you. *(Not required with
+  [`-c useIdc=false`](#cognito-only-mode-no-iam-identity-center).)*
 - Node.js 18+, the AWS CDK CLI, and configured AWS credentials.
 - Python 3.12 (Lambda runtime — used by AWS, not required locally).
 
@@ -97,12 +125,13 @@ cdk deploy -c idcGroupName=QuickDesktopUsers -c createTrail=false
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
-| `idcGroupName` | **yes** | Name of the IAM Identity Center group to watch (e.g. `QuickDesktopUsers`). |
+| `useIdc` | no | `true` (default). Set `false` to deploy Cognito-only without IAM Identity Center automation. |
+| `idcGroupName` | **yes** (when `useIdc=true`) | Name of the IAM Identity Center group to watch (e.g. `QuickDesktopUsers`). |
 | `allowedCidrs` | no | JSON array of CIDRs allowed to reach the API Gateway. Omit to leave it open. |
 | `mfaRequired` | no | `true` to enforce TOTP (authenticator-app) MFA for all users. |
 | `retain` | no | `true` to retain the Cognito User Pool (and the CloudTrail log bucket) when the stack is destroyed. |
 | `onRemove` | no | `delete` (default) or `disable` — what to do to the Cognito user when someone leaves the group. |
-| `createTrail` | no | `true` (default) to create a CloudTrail trail capturing management events. Set `false` if the account already has a management-event trail in this region (see [CloudTrail requirement](#cloudtrail-requirement)). |
+| `createTrail` | no | `true` (default) to create a CloudTrail trail capturing management events. Set `false` if the account already has a management-event trail in this region (see [CloudTrail requirement](#cloudtrail-requirement)). Ignored when `useIdc=false`. |
 
 ## Deploy
 
@@ -110,6 +139,13 @@ cdk deploy -c idcGroupName=QuickDesktopUsers -c createTrail=false
 npm install
 npm run build           # optional type-check
 cdk deploy -c idcGroupName=QuickDesktopUsers
+```
+
+Cognito only, without the IAM Identity Center automation
+([details](#cognito-only-mode-no-iam-identity-center)):
+
+```bash
+cdk deploy -c useIdc=false
 ```
 
 With options:
