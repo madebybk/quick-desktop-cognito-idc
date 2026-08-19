@@ -96,10 +96,22 @@ resource, DLQ) and the CloudTrail trail + S3 bucket — none of the
 [CloudTrail requirement](#cloudtrail-requirement) applies.
 
 You then **manage users manually** in the Cognito console (Amazon Cognito → your
-user pool → Users → *Create user*): create each Quick desktop user with the
-email address that matches their Amazon Quick user, and Cognito emails them an
-invitation with a temporary password. Removing access means disabling or deleting
-the user in the same console.
+user pool → Users → *Create user*). Fill the form as follows:
+
+| Field | Value |
+|-------|-------|
+| **Username** | Any non-email value — e.g. `jdoe`, `user1`, or any arbitrary string. **It must not be in email format.** |
+| **Email address** | The user's real email, exactly matching their Amazon Quick user. Mark it as verified, or send an invitation so they verify it themselves. |
+
+> **The Username field cannot be an email address.** This pool uses email as a
+> sign-in alias, and Cognito rejects an email-format username in that
+> configuration. Put the email in the **Email** field only — that is the value
+> Quick matches on, and it is what the user signs in with. (This is the same
+> reason the IDC sync names users by their IDC user ID.)
+
+Choose *Send an email invitation* and Cognito emails the user a one-time
+temporary password, which they replace on first sign-in. Removing access means
+disabling or deleting the user in the same console.
 
 Switching later is a normal stack update: redeploy with
 `-c idcGroupName=QuickDesktopUsers` to add the sync automation to the existing
@@ -132,6 +144,12 @@ User Pool (its users are untouched), or with `-c useIdc=false` to remove it.
 | `retain` | no | `true` to retain the Cognito User Pool (and the CloudTrail log bucket) when the stack is destroyed. |
 | `onRemove` | no | `delete` (default) or `disable` — what to do to the Cognito user when someone leaves the group. |
 | `createTrail` | no | `true` (default) to create a CloudTrail trail capturing management events. Set `false` if the account already has a management-event trail in this region (see [CloudTrail requirement](#cloudtrail-requirement)). Ignored when `useIdc=false`. |
+
+The boolean parameters (`useIdc`, `mfaRequired`, `retain`, `createTrail`) accept
+`true`/`false`, `yes`/`no`, `on`/`off`, and `1`/`0` in any case — `-c
+mfaRequired=True` works. Anything else fails at synth time rather than silently
+falling back to the default. `onRemove` accepts only lowercase `delete` or
+`disable`, and `allowedCidrs` must be a JSON array of CIDR strings.
 
 ## Deploy
 
